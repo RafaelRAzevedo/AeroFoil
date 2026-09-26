@@ -181,7 +181,7 @@ def _format_age_label(age_minutes):
 
 
 def _normalize_protocol(item):
-raw_protocol = str(item.get("protocol") or item.get("protocolName") or "").strip().lower()
+    raw_protocol = str(item.get("protocol") or item.get("protocolName") or "").strip().lower()
     if raw_protocol in ("torrent", "usenet"):
         return raw_protocol
         
