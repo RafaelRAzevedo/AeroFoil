@@ -279,6 +279,9 @@ def init():
     library_paths = app_settings['library']['paths']
     init_libraries(app, watcher, library_paths)
 
+    # Retro ROM library: initial scan in the background
+    scan_roms_in_background(app)
+
     # Initialize job scheduler
     logger.info('Initializing Scheduler...')
     init_scheduler(app)
@@ -2362,6 +2365,12 @@ def create_app():
 
 # Create app
 app = create_app()
+
+# Retro ROM library and retro requests (self-contained; see app/roms.py)
+from app.roms import roms_blueprint, scan_roms_in_background
+from app.rom_requests import requests_blueprint as retro_requests_blueprint
+app.register_blueprint(roms_blueprint)
+app.register_blueprint(retro_requests_blueprint)
 
 
 @app.errorhandler(RequestEntityTooLarge)

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'nav.html' %}
+<div class="container mt-3">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h2 class="mb-0 me-2">Retro</h2>
+        <input id="romFilter" type="search" class="form-control form-control-sm" style="max-width: 280px"
+               placeholder="Filter games">
+        <a class="btn btn-sm btn-outline-primary ms-auto" href="/retro/requests">
+            <i class="bi bi-inbox"></i> Requests
+            {% if is_admin %}<span class="badge rounded-pill text-bg-warning ms-1 d-none" id="retroPageBadge"></span>{% endif %}
+        </a>
+        {% if is_admin %}
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="rescanBtn">
+            <i class="bi bi-arrow-clockwise"></i> Rescan
+        </button>
+        {% endif %}
+    </div>
+
+    {% if not sections %}
+    <p class="text-secondary">No ROMs found in <code>{{ roms_root }}</code>. Use one folder per platform,
+        e.g. <code>{{ roms_root }}/gba/Game.gba</code>{% if is_admin %}, then rescan{% endif %}.</p>
+    {% endif %}
+
+    {% for key, label, roms in sections %}
+    <section class="mb-4 rom-section">
+        <h4 class="mb-2">{{ label }} <span class="text-secondary fs-6">({{ roms|length }})</span></h4>
+        <div class="list-group">
+            {% for rom in roms %}
+            <div class="list-group-item d-flex align-items-center rom-row" data-name="{{ rom.name|lower }}">
+                <span class="me-auto">{{ rom.name }}</span>
+                <span class="text-secondary small me-3 d-none d-sm-inline">{{ (rom.size / 1048576)|round(1) }} MB</span>
+                <a class="btn btn-sm btn-primary me-2" href="/retro/play/{{ rom.id }}">
+                    <i class="bi bi-play-fill"></i> Play</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/api/retro/roms/{{ rom.id }}/file?download=1"
+                   title="Download"><i class="bi bi-download"></i></a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+<script>
+    document.getElementById('romFilter').addEventListener('input', (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll('.rom-row').forEach(row => {
+            row.classList.toggle('d-none', !!q && !row.dataset.name.includes(q));
+        });
+        document.querySelectorAll('.rom-section').forEach(sec => {
+            sec.classList.toggle('d-none', !sec.querySelector('.rom-row:not(.d-none)'));
+        });
+    });
+    const rescan = document.getElementById('rescanBtn');
+    if (rescan) rescan.addEventListener('click', async () => {
+        rescan.disabled = true;
+        await fetch('/api/retro/scan', { method: 'POST' });
+        location.reload();
+    });
+    const pageBadge = document.getElementById('retroPageBadge');
+    if (pageBadge) {
+        fetch('/api/retro/requests/unseen-count').then(r => r.json()).then(d => {
+            const n = Number((d && d.count) || 0);
+            if (n > 0) { pageBadge.textContent = n > 99 ? '99+' : String(n); pageBadge.classList.remove('d-none'); }
+        }).catch(() => {});
+    }
+</script>
+{% endblock %}

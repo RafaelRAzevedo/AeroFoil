@@ -50,6 +50,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link{% if title == 'Retro' %} active" aria-current="page"{% else %}"{% endif %}" href="/retro">
+                        Retro{% if current_user.is_admin %} <span class="badge rounded-pill text-bg-warning ms-2 d-none" id="retroNavBadge"></span>{% endif %}
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link{% if title == 'Profile' %} active" aria-current="page"{% else %}"{% endif %}" href="/profile">Profile</a>
                 </li>
                 {% endif %}
@@ -123,3 +128,21 @@
         </div>
     </div>
 </nav>
+{% if current_user.is_authenticated and current_user.is_admin %}
+<script>
+    (function () {
+        const badge = document.getElementById('retroNavBadge');
+        if (!badge) return;
+        function poll() {
+            if (document.hidden) return;
+            fetch('/api/retro/requests/unseen-count').then(r => r.ok ? r.json() : null).then(d => {
+                const n = Number((d && d.count) || 0);
+                badge.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+                badge.classList.toggle('d-none', !(n > 0));
+            }).catch(() => {});
+        }
+        poll();
+        setInterval(poll, 60000);
+    })();
+</script>
+{% endif %}

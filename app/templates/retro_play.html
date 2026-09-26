@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'nav.html' %}
+<style>
+    #playerWrap { width: 100%; max-width: 960px; aspect-ratio: 3 / 2; margin: 0 auto; }
+    /* Phones: give the emulator the whole remaining screen so the touch
+       controls sit around the picture instead of on top of it. */
+    @media (max-width: 767.98px) {
+        #playContainer { padding-left: 0; padding-right: 0; }
+        #playHeader { padding: 0 .75rem; }
+        #playerWrap { aspect-ratio: auto; height: calc(100dvh - 140px); max-width: none; }
+        #playNote { display: none; }
+    }
+</style>
+<div class="container mt-3" id="playContainer">
+    <div class="d-flex align-items-center mb-2" id="playHeader">
+        <a href="/retro" class="btn btn-sm btn-outline-secondary me-3"><i class="bi bi-arrow-left"></i></a>
+        <h4 class="mb-0 me-auto text-truncate">{{ rom.name }}</h4>
+        <span id="stateStatus" class="text-secondary small me-3"></span>
+        <button id="deleteState" class="btn btn-sm btn-outline-danger{% if not has_state %} d-none{% endif %}">
+            Delete saved state</button>
+    </div>
+    <div id="playerWrap">
+        <div id="game"></div>
+    </div>
+    <p class="text-secondary small mt-2" id="playNote">Save states made from the emulator menu are stored on the
+        server under your account and resume automatically next time. In-game saves stay in this browser.</p>
+</div>
+<script>
+    const ROM_ID = {{ rom.id }};
+    const statusEl = document.getElementById('stateStatus');
+    const deleteBtn = document.getElementById('deleteState');
+
+    EJS_player = '#game';
+    EJS_core = {{ core|tojson }};
+    EJS_gameName = {{ ('rom-' ~ rom.id ~ '-' ~ rom.name)|tojson }};
+    EJS_gameUrl = '/api/retro/roms/' + ROM_ID + '/file';
+    EJS_pathtodata = {{ emulatorjs_data|tojson }};
+    EJS_startOnLoaded = true;
+    {% if has_state %}
+    EJS_loadStateURL = '/api/retro/roms/' + ROM_ID + '/state?t=' + Date.now();
+    {% endif %}
+
+    EJS_onSaveState = async function (e) {
+        statusEl.textContent = 'Saving state…';
+        try {
+            const res = await fetch('/api/retro/roms/' + ROM_ID + '/state', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: e.state,
+            });
+            if (!res.ok) throw new Error(res.status);
+            statusEl.textContent = 'State saved ' + new Date().toLocaleTimeString();
+            deleteBtn.classList.remove('d-none');
+        } catch (err) {
+            statusEl.textContent = 'Could not save state (' + err.message + ')';
+        }
+    };
+
+    EJS_onLoadState = async function () {
+        try {
+            const res = await fetch('/api/retro/roms/' + ROM_ID + '/state?t=' + Date.now());
+            if (!res.ok) { statusEl.textContent = 'No saved state yet'; return; }
+            const buf = new Uint8Array(await res.arrayBuffer());
+            EJS_emulator.gameManager.loadState(buf);
+            statusEl.textContent = 'State loaded';
+        } catch (err) {
+            statusEl.textContent = 'Could not load state';
+        }
+    };
+
+    deleteBtn.addEventListener('click', async () => {
+        if (!confirm('Delete your saved state for this game?')) return;
+        await fetch('/api/retro/roms/' + ROM_ID + '/state', { method: 'DELETE' });
+        deleteBtn.classList.add('d-none');
+        statusEl.textContent = 'State deleted';
+    });
+</script>
+<script src="{{ emulatorjs_data }}loader.js"></script>
+{% endblock %}
