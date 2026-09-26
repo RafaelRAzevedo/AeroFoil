@@ -77,12 +77,26 @@ def _normalize_result(item):
     protocol = _normalize_protocol(item)
     published_at = _extract_published_at(item)
     age_minutes = _extract_age_minutes(item, published_at=published_at)
+    
+    # 1. Start with the standard download URL
+    final_url = item.get("downloadUrl") or ""
+    
+    # 2. Fallback to magnetUrl if downloadUrl is empty
+    if not final_url:
+        final_url = item.get("magnetUrl") or ""
+        
+    # 3. Final fallback: some indexers (like TPB) hide the magnet in the 'guid' field
+    if not final_url:
+        guid = str(item.get("guid") or "")
+        if guid.startswith("magnet:"):
+            final_url = guid
+
     return {
         "title": item.get("title") or "",
         "size": int(item.get("size") or 0),
         "seeders": int(item.get("seeders") or 0),
         "leechers": int(item.get("leechers") or 0),
-        "download_url": item.get("downloadUrl") or "",
+        "download_url": final_url,
         "info_url": item.get("infoUrl") or "",
         "indexer_id": item.get("indexerId"),
         "indexer": item.get("indexer") or item.get("indexerName") or "",
@@ -167,13 +181,17 @@ def _format_age_label(age_minutes):
 
 
 def _normalize_protocol(item):
-    raw_protocol = str(item.get("protocol") or item.get("protocolName") or "").strip().lower()
+raw_protocol = str(item.get("protocol") or item.get("protocolName") or "").strip().lower()
     if raw_protocol in ("torrent", "usenet"):
         return raw_protocol
+        
     download_url = str(item.get("downloadUrl") or "").strip().lower()
+    magnet_url = str(item.get("magnetUrl") or "").strip().lower()
     info_url = str(item.get("infoUrl") or "").strip().lower()
-    combined = f"{download_url} {info_url}"
-    if download_url.startswith("magnet:") or ".torrent" in combined:
+    
+    combined = f"{download_url} {magnet_url} {info_url}"
+    
+    if "magnet:" in combined or ".torrent" in combined:
         return "torrent"
     if ".nzb" in combined or "usenet" in combined or "newznab" in combined:
         return "usenet"
